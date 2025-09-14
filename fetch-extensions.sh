@@ -5,6 +5,9 @@ set -euo pipefail
 BRANCH=REL1_41
 EXT_DIR="/var/www/html/extensions"
 MANDATORY=(ParserFunctions Scribunto Cite TemplateStyles ImageMap Interwiki)
+if [ "${MW_ENABLE_MAPS:-}" = "1" ]; then
+  MANDATORY+=(Kartographer)
+fi
 
 grab() {
   local name="$1"

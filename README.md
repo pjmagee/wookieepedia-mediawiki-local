@@ -5,8 +5,9 @@ Minimal MediaWiki 1.41 + mandatory extensions to load and view a Wookieepedia du
 ## Goal
 
 1. Put `starwars_pages_current.xml` (or `.xml.gz` / `.xml.7z`) into `./dumps`
-2. Run `docker compose up -d --build`
-3. Open <http://localhost:8080/wiki/Main_Page>
+2. By default, pages with content model `interactivemap` are filtered out to avoid import errors. To import all map pages, set `MW_ENABLE_MAPS=1` in the environment.
+3. Run `docker compose up -d --build`
+4. Open <http://localhost:8080/wiki/Main_Page>
 
 ## Mandatory Extensions
 
@@ -68,6 +69,15 @@ docker compose up -d --build
 Vector skin is hard-coded in `LocalSettings.php` for consistency; change there if you really need another skin.
 
 ## Removed Features
+## Map Pages and Interactive Maps
+
+By default, pages with content model `interactivemap` are filtered out before import to avoid errors (these require the Kartographer extension). If you want to import all map pages and enable interactive maps:
+
+1. Set `MW_ENABLE_MAPS=1` in the environment for the mediawiki service in `docker-compose.yml`.
+2. Kartographer will be installed automatically.
+3. All pages will be imported, but you may need to configure map services for full functionality.
+
+If you leave the default, map pages are skipped and the import will not fail. The filtering is done by `filter_maps.py` (bind-mounted), so switching the `MW_ENABLE_MAPS` value only requires a container restart (re-import if you removed `.imported`). No image rebuild is needed unless you add new extensions.
 
 Fast import, dump splitting, parallel import, read-only mode, file cache, search, gadgets, timed media, syntax highlight, minimal mode – all deleted to keep the stack lean.
 

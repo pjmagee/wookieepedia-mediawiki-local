@@ -26,11 +26,13 @@ services:
       MW_SITE_LANG: en
       MW_ADMIN_USER: "admin"
       MW_ADMIN_PASS: "S3cureAdmin!42"
+      MW_ENABLE_MAPS: "0"
     volumes:
       - images:/var/www/html/images
       - ./dumps:/data/dumps
       - ./start-mediawiki.sh:/usr/local/bin/start-mediawiki:ro
       - ./import-dump.sh:/usr/local/bin/import-dump:ro
+      - ./filter_maps.py:/usr/local/bin/filter_maps.py:ro
     restart: unless-stopped
 
 volumes:

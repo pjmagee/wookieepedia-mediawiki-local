@@ -7,6 +7,7 @@ applyTo: '**'
 Find relevent extensions and configuration of the Wookiepedia wiki:
 
 https://starwars.fandom.com/wiki/Special:Version
+https://starwars.fandom.com/wiki/Special:Export
 
 
 ## Task

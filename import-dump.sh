@@ -19,6 +19,31 @@ if [ -z "${XML_FILE:-}" ]; then
   exit 1
 fi
 
+# Filter out interactivemap pages unless MW_ENABLE_MAPS=1
+FILTERED_XML="$DUMP_DIR/starwars_pages_current.filtered.xml"
+FILTER_SCRIPT="/usr/local/bin/filter_maps.py"
+if [ "${MW_ENABLE_MAPS:-}" != "1" ]; then
+  echo "Filtering out pages with content model 'interactivemap' (set MW_ENABLE_MAPS=1 to disable)" >&2
+  if [ ! -f "$FILTER_SCRIPT" ]; then
+    echo "Filter script $FILTER_SCRIPT missing; cannot filter. Aborting. Set MW_ENABLE_MAPS=1 or ensure script present." >&2
+    exit 1
+  fi
+  if [[ "$XML_FILE" == *.gz ]]; then
+    gunzip -c "$XML_FILE" > "$DUMP_DIR/starwars_pages_current.unpacked.xml"
+    python3 "$FILTER_SCRIPT" "$DUMP_DIR/starwars_pages_current.unpacked.xml" "$FILTERED_XML"
+    rm -f "$DUMP_DIR/starwars_pages_current.unpacked.xml"
+    XML_FILE="$FILTERED_XML"
+  elif [[ "$XML_FILE" == *.7z ]]; then
+    7z x -so "$XML_FILE" 2>/dev/null > "$DUMP_DIR/starwars_pages_current.unpacked.xml"
+    python3 "$FILTER_SCRIPT" "$DUMP_DIR/starwars_pages_current.unpacked.xml" "$FILTERED_XML"
+    rm -f "$DUMP_DIR/starwars_pages_current.unpacked.xml"
+    XML_FILE="$FILTERED_XML"
+  else
+    python3 "$FILTER_SCRIPT" "$XML_FILE" "$FILTERED_XML"
+    XML_FILE="$FILTERED_XML"
+  fi
+fi
+
 echo "Importing $XML_FILE (namespaces: $DEFAULT_NAMESPACES)" >&2
 case "$XML_FILE" in
   *.xml.7z)
