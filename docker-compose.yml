@@ -1,0 +1,38 @@
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: mediawiki
+      MYSQL_USER: wikiuser
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: rootpass
+    command: ["mysqld", "--character-set-server=binary", "--collation-server=binary", "--innodb-file-per-table=1"]
+    volumes:
+      - db_data:/var/lib/mysql
+
+  mediawiki:
+    build: .
+    depends_on:
+      - db
+    ports:
+      - "8080:80"
+    environment:
+      MW_DB_HOST: db
+      MW_DB_NAME: mediawiki
+      MW_DB_USER: wikiuser
+      MW_DB_PASS: secret
+      MW_SITE_NAME: "StarWars Local"
+      MW_SITE_LANG: en
+      MW_ADMIN_USER: "admin"
+      MW_ADMIN_PASS: "S3cureAdmin!42"
+    volumes:
+      - images:/var/www/html/images
+      - ./dumps:/data/dumps
+      - ./start-mediawiki.sh:/usr/local/bin/start-mediawiki:ro
+      - ./import-dump.sh:/usr/local/bin/import-dump:ro
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  images:

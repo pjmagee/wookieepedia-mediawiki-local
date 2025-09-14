@@ -1,0 +1,85 @@
+<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mediawiki.org/xml/export-0.11/ http://www.mediawiki.org/xml/export-0.11.xsd" version="0.11" xml:lang="en">
+  <siteinfo>
+    <sitename>Wookieepedia</sitename>
+    <dbname>starwars</dbname>
+    <base>https://starwars.fandom.com/wiki/Main_Page</base>
+    <generator>MediaWiki 1.43.1</generator>
+    <case>first-letter</case>
+    <namespaces>
+      <namespace key="-2" case="first-letter">Media</namespace>
+      <namespace key="-1" case="first-letter">Special</namespace>
+      <namespace key="0" case="first-letter" />
+      <namespace key="1" case="first-letter">Talk</namespace>
+      <namespace key="2" case="first-letter">User</namespace>
+      <namespace key="3" case="first-letter">User talk</namespace>
+      <namespace key="4" case="first-letter">Wookieepedia</namespace>
+      <namespace key="5" case="first-letter">Wookieepedia talk</namespace>
+      <namespace key="6" case="first-letter">File</namespace>
+      <namespace key="7" case="first-letter">File talk</namespace>
+      <namespace key="8" case="first-letter">MediaWiki</namespace>
+      <namespace key="9" case="first-letter">MediaWiki talk</namespace>
+      <namespace key="10" case="first-letter">Template</namespace>
+      <namespace key="11" case="first-letter">Template talk</namespace>
+      <namespace key="12" case="first-letter">Help</namespace>
+      <namespace key="13" case="first-letter">Help talk</namespace>
+      <namespace key="14" case="first-letter">Category</namespace>
+      <namespace key="15" case="first-letter">Category talk</namespace>
+      <namespace key="100" case="first-letter">Forum</namespace>
+      <namespace key="101" case="first-letter">Forum talk</namespace>
+      <namespace key="112" case="first-letter">Wookieepedia Contests</namespace>
+      <namespace key="113" case="first-letter">Wookieepedia Contests talk</namespace>
+      <namespace key="114" case="first-letter">Bracket</namespace>
+      <namespace key="115" case="first-letter">Bracket talk</namespace>
+      <namespace key="116" case="first-letter">Instant Expert</namespace>
+      <namespace key="117" case="first-letter">Instant Expert talk</namespace>
+      <namespace key="120" case="first-letter">Index</namespace>
+      <namespace key="121" case="first-letter">Index talk</namespace>
+      <namespace key="420" case="first-letter">GeoJson</namespace>
+      <namespace key="421" case="first-letter">GeoJson talk</namespace>
+      <namespace key="500" case="first-letter">User blog</namespace>
+      <namespace key="501" case="first-letter">User blog comment</namespace>
+      <namespace key="502" case="first-letter">Blog</namespace>
+      <namespace key="503" case="first-letter">Blog talk</namespace>
+      <namespace key="828" case="first-letter">Module</namespace>
+      <namespace key="829" case="first-letter">Module talk</namespace>
+      <namespace key="1200" case="first-letter">Message Wall</namespace>
+      <namespace key="1201" case="first-letter">Thread</namespace>
+      <namespace key="1202" case="first-letter">Message Wall Greeting</namespace>
+      <namespace key="2000" case="first-letter">Board</namespace>
+      <namespace key="2001" case="first-letter">Board Thread</namespace>
+      <namespace key="2002" case="first-letter">Topic</namespace>
+      <namespace key="2900" case="first-letter">Map</namespace>
+      <namespace key="2901" case="first-letter">Map talk</namespace>
+    </namespaces>
+  </siteinfo>
+  <page>
+    <title>Module:LinkCheck</title>
+    <ns>828</ns>
+    <id>847087</id>
+    <revision>
+      <id>14336066</id>
+      <parentid>14336064</parentid>
+      <timestamp>2025-02-05T01:10:50Z</timestamp>
+      <contributor>
+        <username>Cade Calrayn</username>
+        <id>1857192</id>
+      </contributor>
+      <origin>14336066</origin>
+      <model>Scribunto</model>
+      <format>text/plain</format>
+      <text bytes="410" sha1="qtsk6gl3fdwppwdqbabx8kq7izbqnbk" xml:space="preserve">local p = {}
+
+function p.main(frame, ...)
+    if frame.args ~= nil and frame.args.template ~= nil and frame.args.value ~= nil and frame.args.value ~= nil then
+    	if frame.args.value:find('%[%[') and mw.title.getCurrentTitle().namespace == 0 then
+    		return '[[Category:' .. frame.args.template .. ' usages with links|' .. mw.title.getCurrentTitle().text .. ']]'
+    	end
+    end
+    return ''
+end
+
+return p</text>
+      <sha1>qtsk6gl3fdwppwdqbabx8kq7izbqnbk</sha1>
+    </revision>
+  </page>
+</mediawiki>
