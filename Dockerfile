@@ -10,9 +10,8 @@ RUN set -eux; \
 
 # Copy extension fetcher and scripts
 COPY fetch-extensions.sh /usr/local/bin/fetch-extensions
-COPY import-dump.sh /usr/local/bin/import-dump
 COPY start-mediawiki.sh /usr/local/bin/start-mediawiki
-RUN chmod +x /usr/local/bin/fetch-extensions /usr/local/bin/import-dump /usr/local/bin/start-mediawiki
+RUN chmod +x /usr/local/bin/fetch-extensions /usr/local/bin/start-mediawiki
 
 # Fetch required extensions (branches aligned with MW 1.41: REL1_41)
 RUN fetch-extensions

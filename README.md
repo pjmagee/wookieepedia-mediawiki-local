@@ -1,15 +1,33 @@
-# Wookieepedia Local Viewer (Simplified)
+# Wookieepedia Local Viewer (Ultra Minimal)
 
-Minimal MediaWiki 1.41 + mandatory extensions to load and view a Wookieepedia dump locally.
+Dead‑simple local read‐only viewer for a Wookieepedia pages-current dump.
 
-## Goal
+## What You Get
 
-1. Put `starwars_pages_current.xml` (or `.xml.gz` / `.xml.7z`) into `./dumps`
-2. By default, pages with content model `interactivemap` are filtered out to avoid import errors. To import all map pages, set `MW_ENABLE_MAPS=1` in the environment.
-3. Run `docker compose up -d --build`
-4. Open <http://localhost:8080/wiki/Main_Page>
+- MediaWiki 1.41 + only extensions required to render typical Wookieepedia pages.
+- One command startup; fast web container (no import work inside it).
+- Separate lightweight loader you run manually to import (single pass if no split; parallel across split parts when preprocessed).
+- Automatic filtering of problematic mapping content models (interactivemap, GeoJSON) – always dropped to avoid heavy map stack.
 
-## Mandatory Extensions
+## Quick Start
+
+```powershell
+mkdir -p dumps
+# Put your dump here (one of):
+#  starwars_pages_current.xml
+#  starwars_pages_current.xml.gz
+#  starwars_pages_current.xml.7z  (7z must be available in loader image or decompress first)
+copy path\to\starwars_pages_current.xml.gz .\dumps\
+
+docker compose up -d --build   # starts db + web only
+docker compose run --rm loader # performs a single-pass import (idempotent)
+```
+
+Open: <http://localhost:8080/wiki/Main_Page>
+
+Re-run just the loader any time (it skips if already imported).
+
+## Mandatory Extensions (always)
 
 | Extension | Why |
 |-----------|-----|
@@ -21,17 +39,25 @@ Minimal MediaWiki 1.41 + mandatory extensions to load and view a Wookieepedia du
 | Interwiki | Interwiki links |
 | PortableInfobox | Infobox layouts |
 
-All former optional/flag-gated extensions removed for simplicity.
+No feature flags. No optional maps. No parallel worker tuning.
 
 ## Prerequisites
 
 - Docker & Docker Compose
 - Wookieepedia pages-current dump renamed (or copied) as `starwars_pages_current.xml[.gz|.7z]`
 
-## Volumes
+## Services
 
-- `./dumps` (bind mount) – place dump here
-- Named volume `images` – uploads
+- `db`        : MariaDB
+- `mediawiki` : Web + mandatory extensions (shared via host bind `./extensions-shared`)
+- `loader`    : On-demand import (uses filtered single file or pre-split parts)
+- `preprocessor` : Optional one-shot filter + split (no DB needed)
+
+## Volumes / Binds
+
+- `./dumps`  : Put main dump plus optional `extra/*.xml` supplemental exports
+- `images`   : Named volume for uploaded files (rarely needed offline)
+- `./extensions-shared` : Host directory holding cloned mandatory extensions (seeded automatically on first start)
 
 ## Quick Start
 
@@ -42,48 +68,81 @@ docker compose up -d --build
 docker compose logs -f mediawiki
 ```
 
-### Startup Flow
+### Import Flow (No Preprocess)
 
-1. Wait for DB
-2. Schema update
-3. Import dump (namespaces: Main|File|Template|Category|Module)
-4. Run maintenance & jobs
-5. Write marker `dumps/.imported`
+1. Start stack (`docker compose up -d --build`)
+2. Run loader (`docker compose run --rm loader`)
+3. Loader: ensures core schema, filters dump (drops mapping models), imports allowed namespaces (Main, File, Template, Category, Module)
+4. Imports any supplemental XML in `dumps/extra/` (idempotent markers `*.xml.imported`)
+5. Runs maintenance scripts, writes `dumps/.imported`
+6. Subsequent loader runs exit immediately unless you delete the marker
 
-### Clean Re-import
+### Optional Preprocessing (Filter + Split)
+
+You can preprocess the dump first (filter + create `split/part*.xml`) without touching the database:
 
 ```powershell
-docker compose down -v
-del .\dumps\.imported
-docker compose up -d --build
+docker compose run --rm preprocessor             # uses default 4 parts
+docker compose run --rm preprocessor --parts 6   # custom parts
 ```
 
-## Environment Variables (Remaining)
+Outputs:
+- `starwars_pages_current.filtered.xml`
+- `split/part1.xml ... partN.xml`
+- Marker: `.preprocessed`
 
-| Variable | Purpose |
-|----------|---------|
-| MW_SITE_NAME | Site name |
-| MW_SITE_LANG | Language code |
-| MW_ADMIN_USER / MW_ADMIN_PASS | Initial admin account |
+Then run the loader which will detect parts and import them in parallel:
 
-Vector skin is hard-coded in `LocalSettings.php` for consistency; change there if you really need another skin.
+```powershell
+docker compose run --rm loader
+```
+
+Force re-preprocess:
+
+```powershell
+docker compose run --rm preprocessor --force
+```
+
+### Re-import
+
+```powershell
+Remove-Item .\dumps\.imported -ErrorAction SilentlyContinue
+docker compose run --rm loader
+```
+
+### Supplemental Only (Skip Main Dump)
+
+After the main import is complete (marker `.imported` exists) you can still import ONLY new files placed in `dumps/extra/` without touching the main dump by running the loader in extra-only mode:
+
+```powershell
+# Using flag
+docker compose run --rm loader --extra-only
+
+# Or via environment variable
+docker compose run --rm -e EXTRA_ONLY=1 loader
+```
+
+This ignores the presence (or absence) of `.imported` for the main dump and processes just un-imported or updated `extra/*.xml` files, then runs maintenance tasks.
+
+## Environment Variables
+
+Only basics left (see compose): site name/lang and admin credentials. Change in `docker-compose.yml` if you care.
 
 ## Removed Features
-## Map Pages and Interactive Maps
 
-By default, pages with content model `interactivemap` are filtered out before import to avoid errors (these require the Kartographer extension). If you want to import all map pages and enable interactive maps:
+Legacy complexity cut: split import scripts (old), read-only toggles, file cache layer, search backend, gadgets, timed media, syntax highlight, job drain scripts, tuning configs.
 
-1. Set `MW_ENABLE_MAPS=1` in the environment for the mediawiki service in `docker-compose.yml`.
-2. Kartographer will be installed automatically.
-3. All pages will be imported, but you may need to configure map services for full functionality.
+## Filtered Models
 
-If you leave the default, map pages are skipped and the import will not fail. The filtering is done by `filter_maps.py` (bind-mounted), so switching the `MW_ENABLE_MAPS` value only requires a container restart (re-import if you removed `.imported`). No image rebuild is needed unless you add new extensions.
-
-Fast import, dump splitting, parallel import, read-only mode, file cache, search, gadgets, timed media, syntax highlight, minimal mode – all deleted to keep the stack lean.
+The loader always drops pages whose latest revision model is in the block list (default: `interactivemap, GeoJSON`). This avoids needing heavyweight map extensions.
 
 ## PortableInfobox
 
-Included automatically. If you see raw `<pi` markup, confirm the extension exists in `extensions/PortableInfobox`.
+Included. If you see raw `<pi` markup, extensions didn’t seed – run `docker compose restart mediawiki` after ensuring `extensions-shared` contains it.
+
+### Lua Engine
+
+Scribunto runs with the standalone Lua interpreter (`luastandalone`) using system `lua5.4`. The PHP LuaSandbox module is not bundled (package not available in the base image’s repo). For most infobox/module logic this is sufficient. If you really need LuaSandbox (slightly better performance), you would have to compile and enable it manually inside a derived image.
 
 ## API Examples
 
@@ -124,7 +183,7 @@ docker compose exec mediawiki php maintenance/runJobs.php --maxjobs 200
 
 ```powershell
 docker compose down -v
-del .\dumps\.imported
+del .\dumps\.imported 2>$null
 docker compose up -d --build
 ```
 
@@ -135,19 +194,20 @@ MediaWiki & extensions: their licenses. This repo scaffold: as-is.
 ---
 Enjoy your local Wookieepedia.
 
-## Repository Layout (Minimal)
+## Repository Layout
 
-Only the essentials are kept:
-
-- `docker-compose.yml` – two-service stack (MariaDB + MediaWiki)
-- `Dockerfile` – builds image with mandatory extensions
-- `fetch-extensions.sh` – clones required extensions
-- `import-dump.sh` – single-pass namespace-scoped import
-- `start-mediawiki.sh` – deterministic startup + conditional import
-- `LocalSettings.php` – locked-down minimal configuration
-- `dumps/` – place your `starwars_pages_current.xml[.gz|.7z]` here
-
-All former helper, split, tuning, analytics, or job scripts were removed.
+| Path | Purpose |
+|------|---------|
+| `docker-compose.yml` | 3 services (db, web, loader) |
+| `Dockerfile` | Web image with mandatory extensions baked (for seeding) |
+| `fetch-extensions.sh` | Clones mandatory extensions into image / seed dir |
+| `start-mediawiki.sh` | DB wait + install/update + seed extensions |
+| `load-data.sh` | Single-pass import + filtering + maintenance |
+| `filter_maps.py` | Filters unwanted content models |
+| `LocalSettings.php` | Site configuration + mandatory extensions |
+| `dumps/` | Main dump + `extra` supplemental XML |
+| `extensions-shared/` | Host-cloned extensions shared by both containers |
+| `images` (volume) | Uploaded files |
 
 ## Supplemental Imports (Missing Modules/Templates)
 
@@ -167,42 +227,36 @@ During startup, any `dumps/extra/*.xml` files are imported after the main dump w
 
 To export a single module/template from a live wiki: use Special:Export and include the exact page title (e.g. `Module:LinkCheck`). Save as XML and drop it into `dumps/extra/`.
 
-Quick re-import cycle for new supplemental files (old behavior – still works):
+Quick supplemental import after initial load (marker stays):
 
 ```powershell
-Remove-Item .\dumps\.imported -ErrorAction SilentlyContinue
-docker compose restart mediawiki
+docker compose run --rm loader
 ```
-
-You can repeat this as you discover additional missing modules or templates.
 
 ### Automatic supplemental detection
 
-On every container start the startup script now scans `dumps/extra/*.xml` and imports only those files that are new or modified (tracked via a sidecar marker `filename.xml.imported`). No need to remove the main `.imported` marker for the large dump just to add a small module.
+`loader` scans `dumps/extra/*.xml` and imports only new/changed files (tracked via `*.xml.imported` markers). No need to drop the main marker for small additions.
 
-Workflow now:
-
-1. Drop / update XML in `dumps/extra/`
-2. `docker compose restart mediawiki`
-3. Watch logs for lines like:
-   - `Importing supplemental /data/dumps/extra/Module_LinkCheck.xml`
-   - `Supplemental import(s) complete` or `No new supplemental XML files to import`
-
-To force re-import a particular supplemental file, delete its sidecar marker:
+To force re-import a single supplemental file:
 
 ```powershell
 Remove-Item .\dumps\extra\Module_LinkCheck.xml.imported
-docker compose restart mediawiki
+docker compose run --rm loader
 ```
 
-Main dump re-import is only needed if you want to rebuild everything: remove `dumps/.imported` as before.
+Main dump re-import still requires removing `.imported`.
 
-## Development (Live Script Editing)
+## Performance
 
-The compose file bind-mounts `start-mediawiki.sh` and `import-dump.sh` into the container (read-only). Any local edit to those scripts is picked up on the next restart:
+If you preprocess (creating split parts) the loader imports all parts in parallel (one process per part) for faster completion. Without preprocessing it performs a single threaded import of the filtered dump.
+
+## Development (Scripts)
+
+Scripts are bind-mounted. Edit locally and re-run the relevant container:
 
 ```powershell
-docker compose restart mediawiki
+docker compose run --rm loader   # to test loader changes
+docker compose restart mediawiki # to restart web only
 ```
 
-No image rebuild needed unless you change the Dockerfile or add new system packages. Ensure files use LF line endings (not CRLF) to avoid bash parsing issues.
+Use LF endings to avoid bash issues.

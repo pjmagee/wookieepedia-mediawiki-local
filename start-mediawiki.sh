@@ -30,6 +30,25 @@ run_mw_update(){
     && php "$MW_ROOT/maintenance/update.php" --quick --conf "$MW_ROOT/LocalSettings.php" || true
 }
 
+seed_extensions_if_needed(){
+  local host_ext_dir="/var/www/html/extensions"
+  local needed=(ParserFunctions Scribunto Cite TemplateStyles ImageMap Interwiki PortableInfobox)
+  local missing=()
+  for e in "${needed[@]}"; do
+    [ -d "$host_ext_dir/$e" ] || missing+=("$e")
+  done
+  if [ ${#missing[@]} -gt 0 ]; then
+    log "Missing extensions: ${missing[*]} – fetching"
+    if command -v fetch-extensions >/dev/null 2>&1; then
+      fetch-extensions || log "fetch-extensions failed (continuing)"
+    else
+      log "fetch-extensions script not available"
+    fi
+  else
+    log "All mandatory extensions present"
+  fi
+}
+
 initial_install_if_needed(){
   # Detect if core tables exist; we use 'page' as sentinel.
   if mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e 'SELECT 1 FROM page LIMIT 1' >/dev/null 2>&1; then
@@ -56,58 +75,11 @@ initial_install_if_needed(){
   log "Initial install complete"
 }
 
-import_if_needed(){
-  shopt -s nullglob
-  local dumpFile=""
-  for f in "$DUMP_DIR"/starwars_pages_current.xml*; do
-    if [ -f "$f" ]; then dumpFile="$f"; break; fi
-  done
-  if [ -z "$dumpFile" ]; then
-    log "No starwars_pages_current.xml dump present; skipping import."
-    return 0
-  fi
-  if [ -f "$MARKER" ]; then
-    log "Import marker exists; skipping import. Remove $MARKER to re-import."
-    return 0
-  fi
-  log "Importing dump $dumpFile (inline)..."
-  import-dump || { log "Import failed"; return 1; }
-  log "Import complete."
-}
-
-import_extras(){
-  local extra_dir="$DUMP_DIR/extra"
-  [ -d "$extra_dir" ] || return 0
-  shopt -s nullglob
-  local imported_any=0
-  for x in "$extra_dir"/*.xml; do
-    [ -f "$x" ] || continue
-    local marker="$x.imported"
-    # Import if marker missing or file newer than marker
-    if [ ! -f "$marker" ] || [ "$x" -nt "$marker" ]; then
-      log "Importing supplemental $x"
-      if php "$MW_ROOT"/maintenance/importDump.php --conf "$MW_ROOT"/LocalSettings.php --report=100 < "$x"; then
-        php "$MW_ROOT"/maintenance/runJobs.php --conf "$MW_ROOT"/LocalSettings.php --maxjobs 100 || true
-        touch "$marker" || true
-        imported_any=1
-      else
-        log "Failed to import supplemental $x"
-      fi
-    fi
-  done
-  if [ $imported_any -eq 1 ]; then
-    log "Supplemental import(s) complete"
-  else
-    log "No new supplemental XML files to import"
-  fi
-}
-
 # Main sequence
 wait_for_db
 initial_install_if_needed
 run_mw_update
-import_if_needed
-import_extras
+seed_extensions_if_needed
 
 log "Starting Apache"
 exec docker-php-entrypoint apache2-foreground

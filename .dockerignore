@@ -1,0 +1,8 @@
+dumps/
+images/
+.git/
+.gitignore
+README.md
+split/
+*.pyc
+__pycache__/

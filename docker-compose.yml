@@ -26,14 +26,46 @@ services:
       MW_SITE_LANG: en
       MW_ADMIN_USER: "admin"
       MW_ADMIN_PASS: "S3cureAdmin!42"
-      MW_ENABLE_MAPS: "0"
     volumes:
       - images:/var/www/html/images
       - ./dumps:/data/dumps
+      - ./extensions-shared:/var/www/html/extensions:rw
       - ./start-mediawiki.sh:/usr/local/bin/start-mediawiki:ro
-      - ./import-dump.sh:/usr/local/bin/import-dump:ro
-      - ./filter_maps.py:/usr/local/bin/filter_maps.py:ro
     restart: unless-stopped
+
+  loader:
+    image: mediawiki:1.41
+    depends_on:
+      - db
+    environment:
+      MW_DB_HOST: db
+      MW_DB_NAME: mediawiki
+      MW_DB_USER: wikiuser
+      MW_DB_PASS: secret
+      MW_SITE_NAME: "StarWars Local"
+      MW_SITE_LANG: en
+      MW_ADMIN_USER: "admin"
+      MW_ADMIN_PASS: "S3cureAdmin!42"
+    volumes:
+      - ./extensions-shared:/var/www/html/extensions:ro
+      - ./dumps:/data/dumps
+      - ./filter_maps.py:/usr/local/bin/filter_maps.py:ro
+      - ./load-data.sh:/usr/local/bin/load-data:ro
+      - ./LocalSettings.php:/var/www/html/LocalSettings.php:ro
+    command: ["bash","/usr/local/bin/load-data"]
+    restart: "no"
+
+  preprocessor:
+    image: mediawiki:1.41
+    environment:
+      SPLIT_PARTS: "4"
+    volumes:
+      - ./dumps:/data/dumps
+      - ./filter_maps.py:/usr/local/bin/filter_maps.py:ro
+      - ./split_wiki_dump.py:/usr/local/bin/split_wiki_dump.py:ro
+      - ./preprocess-dump.sh:/usr/local/bin/preprocess-dump:ro
+    command: ["bash","/usr/local/bin/preprocess-dump"]
+    restart: "no"
 
 volumes:
   db_data:

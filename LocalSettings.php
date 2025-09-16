@@ -72,16 +72,23 @@ $wgLocalTZoffset = 0;
 wfLoadExtension('ParserFunctions');
 $wgPFEnableStringFunctions = true;
 wfLoadExtension('Scribunto');
-$wgScribuntoDefaultEngine = 'luasandbox';
-$wgScribuntoEngineConf['luasandbox']['timeout'] = 30;
-$wgScribuntoEngineConf['luasandbox']['memoryLimit'] = 52428800; // 50MB
+// Use standalone Lua interpreter (luastandalone) – simpler, no php-luasandbox package in base image.
+$wgScribuntoDefaultEngine = 'luastandalone';
+$wgScribuntoEngineConf['luastandalone']['timeout'] = 30; // seconds
+$wgScribuntoEngineConf['luastandalone']['memoryLimit'] = 52428800; // 50MB
+$wgScribuntoEngineConf['luastandalone']['cpuLimit'] = 30; // soft CPU cap
+$wgScribuntoEngineConf['luastandalone']['engine'] = [
+    'luaPath' => '/usr/bin/lua5.4',
+];
 wfLoadExtension('Cite');
 wfLoadExtension('TemplateStyles');
 wfLoadExtension('ImageMap');
 wfLoadExtension('Interwiki');
 
 // Mandatory layout/infobox dependencies
-if ( is_dir( __DIR__ . '/extensions/PortableInfobox' ) ) { wfLoadExtension('PortableInfobox'); }
+if ( is_dir( __DIR__ . '/extensions/PortableInfobox' ) ) { wfLoadExtension('PortableInfobox'); } else { error_log('PortableInfobox extension directory missing; infoboxes will not render.'); }
+
+// Mapping extensions intentionally omitted to keep stack minimal.
 
 # Extra-safe defaults for import
 $wgGroupPermissions['*']['edit'] = false;
